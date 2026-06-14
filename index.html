@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FB Tools Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 40px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+        h2 { color: #1877f2; margin-top: 0; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; color: #333; }
+        input[type="text"], textarea { width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        textarea { resize: vertical; }
+        button { background-color: #1877f2; color: white; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; width: 100%; }
+        button:hover { background-color: #166fe5; }
+        .status { padding: 10px; border-radius: 6px; display: none; font-weight: bold; text-align: center; margin-bottom: 15px; }
+        .success { background-color: #e7f3ff; color: #1877f2; }
+        .error { background-color: #ffebe9; color: #ff3b30; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Tambah Akun Facebook</h2>
+    <div id="statusBox" class="status"></div>
+
+    <label for="accountName">Nama Penanda Akun</label>
+    <input type="text" id="accountName" placeholder="Contoh: Akun Utama / Akun Kloning 1">
+
+    <label for="cookieString">Cookie Facebook</label>
+    <textarea id="cookieString" rows="6" placeholder="Tempelkan (paste) string cookie akun Facebook kamu di sini..."></textarea>
+
+    <button id="btnSimpan" onclick="simpanAkun()">Simpan Akun ke Database</button>
+</div>
+
+<script>
+    async function simpanAkun() {
+        const accountName = document.getElementById('accountName').value.trim();
+        const cookieString = document.getElementById('cookieString').value.trim();
+        const statusBox = document.getElementById('statusBox');
+        const btn = document.getElementById('btnSimpan');
+
+        // Validasi input kosong
+        if (!accountName || !cookieString) {
+            statusBox.textContent = "Semua kolom wajib diisi!";
+            statusBox.className = "status error";
+            statusBox.style.display = "block";
+            return;
+        }
+
+        // Ubah status tombol saat memproses
+        btn.disabled = true;
+        btn.textContent = "Sedang menyimpan...";
+        statusBox.style.display = "none";
+
+        try {
+            // Mengirim data ke backend (_worker.js)
+            const response = await fetch('/api/add-account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accountName, cookieString })
+            });
+
+            const hasil = await response.json();
+
+            if (hasil.success) {
+                statusBox.textContent = hasil.message;
+                statusBox.className = "status success";
+                statusBox.style.display = "block";
+                // Kosongkan form jika berhasil
+                document.getElementById('accountName').value = '';
+                document.getElementById('cookieString').value = '';
+            } else {
+                statusBox.textContent = "Gagal: " + hasil.error;
+                statusBox.className = "status error";
+                statusBox.style.display = "block";
+            }
+        } catch (err) {
+            statusBox.textContent = "Terjadi kesalahan koneksi server.";
+            statusBox.className = "status error";
+            statusBox.style.display = "block";
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Simpan Akun ke Database";
+        }
+    }
+</script>
+
+</body>
+</html>
