@@ -1,6 +1,75 @@
-async function loadGroups() {
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FB Mass Post - Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .wrapper { max-width: 800px; margin: 20px auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h2 { color: #1877f2; margin-top: 0; }
+        select, button, textarea { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 6px; border: 1px solid #ddd; box-sizing: border-box; }
+        button { background-color: #42b72a; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 15px; }
+        button:hover { background-color: #36a420; }
+        .btn-fetch { background-color: #1877f2; }
+        .btn-fetch:hover { background-color: #166fe5; }
+        .group-box { border: 1px solid #ddd; padding: 15px; max-height: 300px; overflow-y: auto; border-radius: 6px; margin-bottom: 20px; background: #fafafa; }
+        .nav-link { display: inline-block; margin-bottom: 15px; color: #1877f2; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <a href="/" class="nav-link">← Tambah Akun Baru</a>
+    <h2>FB Mass Post Dashboard</h2>
+    
+    <label style="font-weight:bold;">Pilih Akun Facebook:</label>
+    <select id="accountSelect">
+        <option value="">-- Loading Akun... --</option>
+    </select>
+
+    <button class="btn-fetch" onclick="loadGroups()">Ambil Daftar Grup dari Akun Ini</button>
+
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+
+    <label style="font-weight:bold;">Hasil Analisis Kode Facebook:</label>
+    <div id="statusAnalisis" style="font-weight: bold; margin-bottom: 10px; color: blue;"></div>
+    <div class="group-box" id="groupContainer">
+        <span style="color:#777;">Silakan klik tombol "Ambil Daftar Grup" di atas terlebih dahulu.</span>
+    </div>
+
+    <label style="font-weight:bold;">Isi Postingan Massal:</label>
+    <textarea id="postContent" rows="5" placeholder="Tulis teks postingan kamu di sini..."></textarea>
+
+    <button onclick="alert('Fitur posting massal aktif setelah urusan deteksi grup beres!')">Mulai Mass Posting</button>
+</div>
+
+<script>
+    // 1. Ambil daftar akun saat halaman pertama dibuka
+    window.onload = function() {
+        const select = document.getElementById('accountSelect');
+        fetch('/api/get-accounts')
+            .then(res => res.json())
+            .then(data => {
+                if(data.success && data.accounts.length > 0) {
+                    select.innerHTML = '<option value="">-- Pilih Akun Terlebih Dahulu --</option>';
+                    data.accounts.forEach(acc => {
+                        select.innerHTML += '<option value="' + acc.id + '">' + acc.account_name + '</option>';
+                    });
+                } else {
+                    select.innerHTML = '<option value="">Belum ada akun di database.</option>';
+                }
+            })
+            .catch(() => {
+                select.innerHTML = '<option value="">Gagal memuat akun.</option>';
+            });
+    };
+
+    // 2. Fungsi Inspeksi HTML Facebook Sederhana (Bebas dari Error Backtick)
+    function loadGroups() {
         const accountId = document.getElementById('accountSelect').value;
         const container = document.getElementById('groupContainer');
+        const statusTxt = document.getElementById('statusAnalisis');
 
         if(!accountId) {
             alert('Pilih akun dulu bos!');
@@ -8,34 +77,38 @@ async function loadGroups() {
         }
 
         container.innerHTML = '<i>Sedang menginspeksi kode Facebook, mohon tunggu...</i>';
+        statusTxt.innerHTML = '';
 
-        try {
-            const res = await fetch('/api/fetch-groups', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accountId })
-            });
-            const data = await res.json();
-
+        fetch('/api/fetch-groups', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accountId: accountId })
+        })
+        .then(res => res.json())
+        .then(data => {
             if(data.success && data.debugHtml) {
-                // Kita tampilkan 1000 karakter pertama isi HTML Facebook di kotak grup buat kita periksa
-                // Dan kita cetak full kodenya di Console Browser (F12)
-                console.log("HTML LENGKAP FACEBOOK:", data.debugHtml);
-                
-                // Cari tahu apakah ada indikasi terlempar ke halaman login/checkpoint
-                let statusLog = "Koneksi Berhasil. ";
-                if(data.debugHtml.includes("login.php")) statusLog = "MENINGGAL: Terlempar ke Halaman Login! ";
-                if(data.debugHtml.includes("checkpoint")) statusLog = "MENINGGAL: Akun Terkena Checkpoint/Sesi Habis! ";
+                // Cek status cookie akun
+                let analisis = "Koneksi Berhasil! Cookie Aktif.";
+                if(data.debugHtml.includes("login.php")) {
+                    analisis = "STATUS SIKAT: Terlempar ke Halaman Login (Cookie Mati/Invalid)!";
+                } else if(data.debugHtml.includes("checkpoint")) {
+                    analisis = "STATUS SIKAT: Akun Terkena Checkpoint/Verifikasi Keamanan!";
+                }
 
-                container.innerHTML = `
-                    <b style="color:blue;">Status Analisis: ${statusLog}</b><br><br>
-                    <textarea rows="6" style="font-family:monospace; font-size:12px;">${data.debugHtml.substring(0, 2000)}</textarea>
-                    <br><small>Isi kodingan lengkap sudah dikirim ke Console F12 browser kamu.</small>
-                `;
+                statusTxt.innerHTML = analisis;
+                
+                // Buat box isi teks HTML mentah potongan awal
+                const teksPotongan = data.debugHtml.substring(0, 3000);
+                container.innerHTML = '<textarea rows="10" style="width:100%; font-family:monospace; font-size:11px;">' + teksPotongan + '</textarea>';
             } else {
-                container.innerHTML = `<span style="color:red;">Gagal: ${data.error}</span>`;
+                container.innerHTML = '<span style="color:red;">Gagal: ' + data.error + '</span>';
             }
-        } catch (err) {
-            container.innerHTML = '<span style="color:red;">Terjadi kesalahan koneksi server.</span>';
-        }
+        })
+        .catch(err => {
+            container.innerHTML = '<span style="color:red;">Terjadi kesalahan jaringan server.</span>';
+        });
     }
+</script>
+
+</body>
+</html>
