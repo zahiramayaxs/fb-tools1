@@ -1,73 +1,4 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FB Mass Post - Dashboard</title>
-    <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-        .wrapper { max-width: 800px; margin: 20px auto; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        h2 { color: #1877f2; margin-top: 0; }
-        select, button, textarea { width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 6px; border: 1px solid #ddd; box-sizing: border-box; }
-        button { background-color: #42b72a; color: white; border: none; font-weight: bold; cursor: pointer; font-size: 15px; }
-        button:hover { background-color: #36a420; }
-        .btn-fetch { background-color: #1877f2; }
-        .btn-fetch:hover { background-color: #166fe5; }
-        .group-box { border: 1px solid #ddd; padding: 15px; max-height: 250px; overflow-y: auto; border-radius: 6px; margin-bottom: 20px; background: #fafafa; }
-        .group-item { margin-bottom: 8px; display: flex; align-items: center; }
-        .group-item input { margin-right: 10px; }
-        .nav-link { display: inline-block; margin-bottom: 15px; color: #1877f2; text-decoration: none; font-weight: bold; }
-    </style>
-</head>
-<body>
-
-<div class="wrapper">
-    <a href="/" class="nav-link">← Tambah Akun Baru</a>
-    <h2>FB Mass Post Dashboard</h2>
-    
-    <label style="font-weight:bold;">Pilih Akun Facebook:</label>
-    <select id="accountSelect">
-        <option value="">-- Loading Akun... --</option>
-    </select>
-
-    <button class="btn-fetch" onclick="loadGroups()">Ambil Daftar Grup dari Akun Ini</button>
-
-    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-
-    <label style="font-weight:bold;">Daftar Grup yang Diikuti:</label>
-    <div class="group-box" id="groupContainer">
-        <span style="color:#777;">Silakan klik tombol "Ambil Daftar Grup" di atas terlebih dahulu.</span>
-    </div>
-
-    <label style="font-weight:bold;">Isi Postingan Massal:</label>
-    <textarea id="postContent" rows="5" placeholder="Tulis teks postingan kamu di sini..."></textarea>
-
-    <button onclick="startMassPost()">Mulai Mass Posting ke Grup Terpilih</button>
-</div>
-
-<script>
-    // 1. Otomatis panggil daftar akun saat halaman dibuka
-    window.onload = async function() {
-        const select = document.getElementById('accountSelect');
-        try {
-            const res = await fetch('/api/get-accounts');
-            const data = await res.json();
-            
-            if(data.success && data.accounts.length > 0) {
-                select.innerHTML = '<option value="">-- Pilih Akun Terlebih Dahulu --</option>';
-                data.accounts.forEach(acc => {
-                    select.innerHTML += `<option value="${acc.id}">${acc.account_name}</option>`;
-                });
-            } else {
-                select.innerHTML = '<option value="">Belum ada akun di database. Silakan tambah dulu.</option>';
-            }
-        } catch (err) {
-            select.innerHTML = '<option value="">Gagal memuat daftar akun.</option>';
-        }
-    };
-
-    // 2. Fungsi untuk load grup milik akun terpilih
-    async function loadGroups() {
+async function loadGroups() {
         const accountId = document.getElementById('accountSelect').value;
         const container = document.getElementById('groupContainer');
 
@@ -76,7 +7,7 @@
             return;
         }
 
-        container.innerHTML = '<i>Sedang mengintip grup Facebook, mohon tunggu sebentar...</i>';
+        container.innerHTML = '<i>Sedang menginspeksi kode Facebook, mohon tunggu...</i>';
 
         try {
             const res = await fetch('/api/fetch-groups', {
@@ -86,31 +17,25 @@
             });
             const data = await res.json();
 
-            if(data.success && data.groups.length > 0) {
-                container.innerHTML = '';
-                data.groups.forEach(g => {
-                    container.innerHTML += `
-                        <div class="group-item">
-                            <input type="checkbox" name="fb_groups" value="${g.groupId}">
-                            <label>${g.groupName} (${g.groupId})</label>
-                        </div>
-                    `;
-                });
-            } else if (!data.success) {
-                container.innerHTML = `<span style="color:red;">Gagal: ${data.error}</span>`;
+            if(data.success && data.debugHtml) {
+                // Kita tampilkan 1000 karakter pertama isi HTML Facebook di kotak grup buat kita periksa
+                // Dan kita cetak full kodenya di Console Browser (F12)
+                console.log("HTML LENGKAP FACEBOOK:", data.debugHtml);
+                
+                // Cari tahu apakah ada indikasi terlempar ke halaman login/checkpoint
+                let statusLog = "Koneksi Berhasil. ";
+                if(data.debugHtml.includes("login.php")) statusLog = "MENINGGAL: Terlempar ke Halaman Login! ";
+                if(data.debugHtml.includes("checkpoint")) statusLog = "MENINGGAL: Akun Terkena Checkpoint/Sesi Habis! ";
+
+                container.innerHTML = `
+                    <b style="color:blue;">Status Analisis: ${statusLog}</b><br><br>
+                    <textarea rows="6" style="font-family:monospace; font-size:12px;">${data.debugHtml.substring(0, 2000)}</textarea>
+                    <br><small>Isi kodingan lengkap sudah dikirim ke Console F12 browser kamu.</small>
+                `;
             } else {
-                container.innerHTML = '<span style="color:#777;">Akun ini belum masuk ke grup mana pun atau daftar grup disembunyikan.</span>';
+                container.innerHTML = `<span style="color:red;">Gagal: ${data.error}</span>`;
             }
         } catch (err) {
-            container.innerHTML = '<span style="color:red;">Terjadi kesalahan koneksi server saat mengambil grup.</span>';
+            container.innerHTML = '<span style="color:red;">Terjadi kesalahan koneksi server.</span>';
         }
     }
-
-    // 3. Fungsi Mass Post (Akan kita isi mesinnya di Fase 4)
-    function startMassPost() {
-        alert('Fitur mass post akan kita aktifkan setelah daftar grup sukses tampil!');
-    }
-</script>
-
-</body>
-</html>
