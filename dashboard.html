@@ -14,6 +14,8 @@
         .btn-fetch { background-color: #1877f2; }
         .btn-fetch:hover { background-color: #166fe5; }
         .group-box { border: 1px solid #ddd; padding: 15px; max-height: 300px; overflow-y: auto; border-radius: 6px; margin-bottom: 20px; background: #fafafa; }
+        .group-item { margin-bottom: 10px; display: flex; align-items: center; font-size: 14px; }
+        .group-item input { margin-right: 12px; transform: scale(1.2); }
         .nav-link { display: inline-block; margin-bottom: 15px; color: #1877f2; text-decoration: none; font-weight: bold; }
     </style>
 </head>
@@ -32,8 +34,7 @@
 
     <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
 
-    <label style="font-weight:bold;">Hasil Analisis Kode Facebook:</label>
-    <div id="statusAnalisis" style="font-weight: bold; margin-bottom: 10px; color: blue;"></div>
+    <label style="font-weight:bold;">Daftar Grup yang Diikuti:</label>
     <div class="group-box" id="groupContainer">
         <span style="color:#777;">Silakan klik tombol "Ambil Daftar Grup" di atas terlebih dahulu.</span>
     </div>
@@ -41,11 +42,10 @@
     <label style="font-weight:bold;">Isi Postingan Massal:</label>
     <textarea id="postContent" rows="5" placeholder="Tulis teks postingan kamu di sini..."></textarea>
 
-    <button onclick="alert('Fitur posting massal aktif setelah urusan deteksi grup beres!')">Mulai Mass Posting</button>
+    <button onclick="alert('Langkah selanjutnya kita buat tombol ini mengirim postingan massal!')">Mulai Mass Posting</button>
 </div>
 
 <script>
-    // 1. Ambil daftar akun saat halaman pertama dibuka
     window.onload = function() {
         const select = document.getElementById('accountSelect');
         fetch('/api/get-accounts')
@@ -59,25 +59,19 @@
                 } else {
                     select.innerHTML = '<option value="">Belum ada akun di database.</option>';
                 }
-            })
-            .catch(() => {
-                select.innerHTML = '<option value="">Gagal memuat akun.</option>';
             });
     };
 
-    // 2. Fungsi Inspeksi HTML Facebook Sederhana (Bebas dari Error Backtick)
     function loadGroups() {
         const accountId = document.getElementById('accountSelect').value;
         const container = document.getElementById('groupContainer');
-        const statusTxt = document.getElementById('statusAnalisis');
 
         if(!accountId) {
             alert('Pilih akun dulu bos!');
             return;
         }
 
-        container.innerHTML = '<i>Sedang menginspeksi kode Facebook, mohon tunggu...</i>';
-        statusTxt.innerHTML = '';
+        container.innerHTML = '<i>Sedang memproses daftar grup Facebook kamu...</i>';
 
         fetch('/api/fetch-groups', {
             method: 'POST',
@@ -86,25 +80,21 @@
         })
         .then(res => res.json())
         .then(data => {
-            if(data.success && data.debugHtml) {
-                // Cek status cookie akun
-                let analisis = "Koneksi Berhasil! Cookie Aktif.";
-                if(data.debugHtml.includes("login.php")) {
-                    analisis = "STATUS SIKAT: Terlempar ke Halaman Login (Cookie Mati/Invalid)!";
-                } else if(data.debugHtml.includes("checkpoint")) {
-                    analisis = "STATUS SIKAT: Akun Terkena Checkpoint/Verifikasi Keamanan!";
-                }
-
-                statusTxt.innerHTML = analisis;
-                
-                // Buat box isi teks HTML mentah potongan awal
-                const teksPotongan = data.debugHtml.substring(0, 3000);
-                container.innerHTML = '<textarea rows="10" style="width:100%; font-family:monospace; font-size:11px;">' + teksPotongan + '</textarea>';
+            if(data.success && data.groups.length > 0) {
+                container.innerHTML = '';
+                data.groups.forEach(g => {
+                    container.innerHTML += '<div class="group-item">' +
+                        '<input type="checkbox" name="fb_groups" value="' + g.groupId + '">' +
+                        '<label><b>' + g.groupName + '</b> (' + g.groupId + ')</label>' +
+                        '</div>';
+                });
+            } else if (data.success && data.groups.length === 0) {
+                container.innerHTML = '<span style="color:#777;">Grup tidak terbaca atau akun belum masuk grup mbasic mana pun.</span>';
             } else {
                 container.innerHTML = '<span style="color:red;">Gagal: ' + data.error + '</span>';
             }
         })
-        .catch(err => {
+        .catch(() => {
             container.innerHTML = '<span style="color:red;">Terjadi kesalahan jaringan server.</span>';
         });
     }
