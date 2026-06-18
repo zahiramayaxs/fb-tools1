@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bulk Link Variator Generator</title>
+    <title>Bulk Link Variator Generator Pro</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
         .container { max-width: 700px; margin: 30px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
@@ -21,10 +21,10 @@
 <body>
 
 <div class="container">
-    <h2>🔗 Bulk Link Variator Generator</h2>
+    <h2>🔗 Bulk Link Variator Generator Pro</h2>
     
     <label for="targetLinks">Masukkan Link Video Tujuan (Satu link per baris):</label>
-    <textarea id="targetLinks" rows="6" placeholder="https://videy.co/v?id=video1&#10;https://videy.co/v?id=video2"></textarea>
+    <textarea id="targetLinks" rows="6" placeholder="https://videy.co/v?id=video1"></textarea>
 
     <label for="totalVariations">Jumlah Link Variasi Yang Mau Dibuat (Per Link Tujuan):</label>
     <input type="number" id="totalVariations" value="5" min="1" max="50">
@@ -32,7 +32,7 @@
     <button id="btnGenerate" onclick="generateBulkLinks()">Generate Variasi Link</button>
 
     <div id="resultWrapper" class="result-box">
-        <label style="color: #1877f2;">🎁 Hasil Link Variasi Siap Sebar:</label>
+        <label style="color: #1877f2;">🎁 Hasil Link Variasi Siap Sebar (.mp4):</label>
         <textarea id="outputResults" rows="10" readonly></textarea>
         <button class="btn-copy" onclick="copyToClipboard()">Salin Semua Link</button>
     </div>
@@ -67,8 +67,12 @@
 
             if (hasil.success) {
                 resultWrapper.style.display = "block";
-                const currentDomain = window.location.origin;
-                const generatedUrls = hasil.variations.map(v => currentDomain + '/' + v).join('\n');
+                
+                // PENTING: Kita pakai domain kustom pilihanmu di sini
+                const customDomain = "https://cdn2.videiy.biz.id";
+                
+                // Hasil akhirnya otomatis ditambahkan .mp4 di belakangnya
+                const generatedUrls = hasil.variations.map(v => customDomain + '/' + v + '.mp4').join('\n');
                 outputResults.value = generatedUrls;
             } else {
                 alert("Gagal: " + hasil.error);
@@ -81,11 +85,12 @@
         }
     }
 
+    // Fungsi salin clipboard tetap sama
     function copyToClipboard() {
         const outputResults = document.getElementById('outputResults');
         outputResults.select();
         document.execCommand('copy');
-        alert('Semua link variasi berhasil disalin ke clipboard!');
+        alert('Semua link variasi berhasil disalin!');
     }
 </script>
 
