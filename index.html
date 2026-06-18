@@ -68,11 +68,11 @@
             if (hasil.success) {
                 resultWrapper.style.display = "block";
                 
-                // PENTING: Kita pakai domain kustom pilihanmu di sini
-                const customDomain = "https://cdn2.videiy.biz.id";
+                // PENTING: window.location.origin otomatis mengambil domain bawaan Cloudflare kamu (fb-tools.pages.dev)
+                const currentDomain = window.location.origin;
                 
-                // Hasil akhirnya otomatis ditambahkan .mp4 di belakangnya
-                const generatedUrls = hasil.variations.map(v => customDomain + '/' + v + '.mp4').join('\n');
+                // Menyusun format ekor acak + .mp4 menggunakan domain bawaan
+                const generatedUrls = hasil.variations.map(v => currentDomain + '/' + v + '.mp4').join('\n');
                 outputResults.value = generatedUrls;
             } else {
                 alert("Gagal: " + hasil.error);
@@ -85,7 +85,6 @@
         }
     }
 
-    // Fungsi salin clipboard tetap sama
     function copyToClipboard() {
         const outputResults = document.getElementById('outputResults');
         outputResults.select();
