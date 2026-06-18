@@ -3,86 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FB Tools Dashboard</title>
+    <title>Bulk Link Variator Generator</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 40px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
-        h2 { color: #1877f2; margin-top: 0; }
-        label { font-weight: bold; display: block; margin-bottom: 5px; color: #333; }
-        input[type="text"], textarea { width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-        textarea { resize: vertical; }
-        button { background-color: #1877f2; color: white; border: none; padding: 12px 20px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; width: 100%; }
+        .container { max-width: 700px; margin: 30px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
+        h2 { color: #1877f2; margin-top: 0; text-align: center; }
+        label { font-weight: bold; display: block; margin-top: 15px; margin-bottom: 5px; color: #333; }
+        textarea, input[type="number"] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        textarea { resize: vertical; font-family: monospace; }
+        button { background-color: #1877f2; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 15px; }
         button:hover { background-color: #166fe5; }
-        .status { padding: 10px; border-radius: 6px; display: none; font-weight: bold; text-align: center; margin-bottom: 15px; }
-        .success { background-color: #e7f3ff; color: #1877f2; }
-        .error { background-color: #ffebe9; color: #ff3b30; }
+        .result-box { background: #f9f9f9; border: 1px dashed #1877f2; padding: 15px; margin-top: 20px; border-radius: 6px; display: none; }
+        .btn-copy { background-color: #42b72a; margin-top: 10px; }
+        .btn-copy:hover { background-color: #36a420; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Tambah Akun Facebook</h2>
-    <div id="statusBox" class="status"></div>
+    <h2>🔗 Bulk Link Variator Generator</h2>
+    
+    <label for="targetLinks">Masukkan Link Video Tujuan (Satu link per baris):</label>
+    <textarea id="targetLinks" rows="6" placeholder="https://videy.co/v?id=video1&#10;https://videy.co/v?id=video2"></textarea>
 
-    <label for="accountName">Nama Penanda Akun</label>
-    <input type="text" id="accountName" placeholder="Contoh: Akun Utama / Akun Kloning 1">
+    <label for="totalVariations">Jumlah Link Variasi Yang Mau Dibuat (Per Link Tujuan):</label>
+    <input type="number" id="totalVariations" value="5" min="1" max="50">
 
-    <label for="cookieString">Cookie Facebook</label>
-    <textarea id="cookieString" rows="6" placeholder="Tempelkan (paste) string cookie akun Facebook kamu di sini..."></textarea>
+    <button id="btnGenerate" onclick="generateBulkLinks()">Generate Variasi Link</button>
 
-    <button id="btnSimpan" onclick="simpanAkun()">Simpan Akun ke Database</button>
+    <div id="resultWrapper" class="result-box">
+        <label style="color: #1877f2;">🎁 Hasil Link Variasi Siap Sebar:</label>
+        <textarea id="outputResults" rows="10" readonly></textarea>
+        <button class="btn-copy" onclick="copyToClipboard()">Salin Semua Link</button>
+    </div>
 </div>
 
 <script>
-    async function simpanAkun() {
-        const accountName = document.getElementById('accountName').value.trim();
-        const cookieString = document.getElementById('cookieString').value.trim();
-        const statusBox = document.getElementById('statusBox');
-        const btn = document.getElementById('btnSimpan');
+    async function generateBulkLinks() {
+        const targetLinksRaw = document.getElementById('targetLinks').value.trim();
+        const totalVariations = document.getElementById('totalVariations').value;
+        const btn = document.getElementById('btnGenerate');
+        const resultWrapper = document.getElementById('resultWrapper');
+        const outputResults = document.getElementById('outputResults');
 
-        // Validasi input kosong
-        if (!accountName || !cookieString) {
-            statusBox.textContent = "Semua kolom wajib diisi!";
-            statusBox.className = "status error";
-            statusBox.style.display = "block";
+        if (!targetLinksRaw) {
+            alert("Masukkan minimal satu link tujuan dulu bos!");
             return;
         }
 
-        // Ubah status tombol saat memproses
+        const linksArray = targetLinksRaw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
         btn.disabled = true;
-        btn.textContent = "Sedang menyimpan...";
-        statusBox.style.display = "none";
+        btn.textContent = "Sedang memproses & menyimpan ke DB...";
 
         try {
-            // Mengirim data ke backend (_worker.js)
-            const response = await fetch('/api/add-account', {
+            const response = await fetch('/api/generate-links', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ accountName, cookieString })
+                body: JSON.stringify({ links: linksArray, count: parseInt(totalVariations) })
             });
 
             const hasil = await response.json();
 
             if (hasil.success) {
-                statusBox.textContent = hasil.message;
-                statusBox.className = "status success";
-                statusBox.style.display = "block";
-                // Kosongkan form jika berhasil
-                document.getElementById('accountName').value = '';
-                document.getElementById('cookieString').value = '';
+                resultWrapper.style.display = "block";
+                const currentDomain = window.location.origin;
+                const generatedUrls = hasil.variations.map(v => currentDomain + '/' + v).join('\n');
+                outputResults.value = generatedUrls;
             } else {
-                statusBox.textContent = "Gagal: " + hasil.error;
-                statusBox.className = "status error";
-                statusBox.style.display = "block";
+                alert("Gagal: " + hasil.error);
             }
         } catch (err) {
-            statusBox.textContent = "Terjadi kesalahan koneksi server.";
-            statusBox.className = "status error";
-            statusBox.style.display = "block";
+            alert("Terjadi kesalahan sistem.");
         } finally {
             btn.disabled = false;
-            btn.textContent = "Simpan Akun ke Database";
+            btn.textContent = "Generate Variasi Link";
         }
+    }
+
+    function copyToClipboard() {
+        const outputResults = document.getElementById('outputResults');
+        outputResults.select();
+        document.execCommand('copy');
+        alert('Semua link variasi berhasil disalin ke clipboard!');
     }
 </script>
 
