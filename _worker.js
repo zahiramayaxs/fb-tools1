@@ -6,7 +6,6 @@ export default {
     if (url.pathname === "/api/generate-links" && request.method === "POST") {
       try {
         const { links, count } = await request.json();
-        
         if (!links || !Array.isArray(links) || links.length === 0) {
           return new Response(JSON.stringify({ success: false, error: "Daftar link kosong." }), { status: 400 });
         }
@@ -35,8 +34,7 @@ export default {
       }
     }
 
-    // 2. MAIN ENGINE: PENGALIHAN / REDIRECT (DENGAN GEBAL DARI PENCARIAN FILE SYSTEM)
-    // Di sini kita tambahkan aturan: jika alamatnya mengandung kata "tool", abaikan dan jangan cek database D1!
+    // 2. MAIN ENGINE: LOADING SCREEN ANTI-MACET UNTUK FACEBOOK MOBILE
     if (
       url.pathname !== "/" && 
       url.pathname !== "" && 
@@ -65,21 +63,40 @@ export default {
               <title>Memuat Video...</title>
               <style>
                   body { margin: 0; padding: 0; background-color: #0e121a; color: #ffffff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-                  .loading-container { text-align: center; }
-                  .spinner { width: 60px; height: 60px; border: 4px solid rgba(24, 119, 242, 0.1); border-left-color: #1877f2; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; box-shadow: 0 0 15px rgba(24, 119, 242, 0.4); }
-                  .text { font-size: 18px; font-weight: 500; color: #e4e6eb; animation: pulse 1.5s ease-in-out infinite; }
+                  .loading-container { text-align: center; padding: 20px; }
+                  .spinner { width: 50px; height: 50px; border: 4px solid rgba(24, 119, 242, 0.1); border-left-color: #1877f2; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+                  .text { font-size: 16px; font-weight: 500; color: #e4e6eb; margin-bottom: 25px; }
+                  
+                  /* Tombol Darurat jika JS Otomatis Macet di FB Lite */
+                  .btn-redirect { display: inline-block; background-color: #1877f2; color: white; text-decoration: none; padding: 10px 20px; font-size: 14px; font-weight: bold; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: background 0.2s; }
+                  .btn-redirect:active { background-color: #115cb8; }
+
                   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                  @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
               </style>
           </head>
           <body>
           <div class="loading-container">
               <div class="spinner"></div>
               <div class="text">Menyiapkan video...</div>
+              <a href="${dataLink.target_url}" class="btn-redirect" id="clickBtn">Klik di sini jika tidak pindah otomatis</a>
           </div>
           <script>
+              var target = "${dataLink.target_url}";
+              
+              // Eksekusi Instan Pertama (Mencoba menembus block FB Browser)
+              try {
+                  window.location.replace(target);
+              } catch(e) {
+                  window.location.href = target;
+              }
+
+              // Cadangan: Eksekusi kedua setelah jeda 3 detik jika eksekusi instan di atas ditahan
               setTimeout(function() {
-                  window.location.href = "${dataLink.target_url}";
+                  try {
+                      window.location.replace(target);
+                  } catch(e) {
+                      window.location.href = target;
+                  }
               }, 3000);
           </script>
           </body>
@@ -94,7 +111,6 @@ export default {
       }
     }
 
-    // Mengembalikan aset frontend asli dari GitHub
     return env.ASSETS.fetch(request);
   }
 };
