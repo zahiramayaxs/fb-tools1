@@ -35,9 +35,15 @@ export default {
       }
     }
 
-    // 2. MAIN ENGINE: PENGALIHAN / REDIRECT (HANYA BERLAKU JIKA TIDAK MENGAKSES FILE .HTML)
-    // Jika link mengandung ".html" atau berawalan "/api/", biarkan dilewati tanpa dicek ke DB
-    if (url.pathname !== "/" && url.pathname !== "" && !url.pathname.endsWith(".html") && !url.pathname.startsWith("/api/")) {
+    // 2. MAIN ENGINE: PENGALIHAN / REDIRECT (DENGAN GEBAL DARI PENCARIAN FILE SYSTEM)
+    // Di sini kita tambahkan aturan: jika alamatnya mengandung kata "tool", abaikan dan jangan cek database D1!
+    if (
+      url.pathname !== "/" && 
+      url.pathname !== "" && 
+      !url.pathname.endsWith(".html") && 
+      !url.pathname.includes("tool") && 
+      !url.pathname.startsWith("/api/")
+    ) {
       try {
         let kodeUrl = url.pathname.replace("/", "");
 
@@ -88,7 +94,7 @@ export default {
       }
     }
 
-    // Mengembalikan aset frontend asli dari GitHub (termasuk tool.html)
+    // Mengembalikan aset frontend asli dari GitHub
     return env.ASSETS.fetch(request);
   }
 };
