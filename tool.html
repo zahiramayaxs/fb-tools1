@@ -9,7 +9,7 @@
         .container { max-width: 700px; margin: 30px auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
         h2 { color: #1877f2; margin-top: 0; text-align: center; }
         label { font-weight: bold; display: block; margin-top: 15px; margin-bottom: 5px; color: #333; }
-        textarea, input[type="number"] { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        textarea, input[type="number"], select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 14px; background-color: #fff; }
         textarea { resize: vertical; font-family: monospace; }
         button { background-color: #1877f2; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; width: 100%; margin-top: 15px; }
         button:hover { background-color: #166fe5; }
@@ -22,6 +22,13 @@
 
 <div class="container">
     <h2>🔗 Bulk Link Variator Generator Pro</h2>
+    
+    <label for="domainSelect">Pilih Domain Hasil (Output):</label>
+    <select id="domainSelect">
+        <option value="acak">🎲 Acak Satu Domain Untuk Semua Hasil</option>
+        <option value="https://qu-ac.site">qu-ac.site</option>
+        <option value="https://videiy.biz.id">videiy.biz.id</option>
+    </select>
     
     <label for="targetLinks">Masukkan Link Video Tujuan (Satu link per baris):</label>
     <textarea id="targetLinks" rows="6" placeholder="https://videy.co/v?id=video1"></textarea>
@@ -40,6 +47,7 @@
 
 <script>
     async function generateBulkLinks() {
+        const domainSelect = document.getElementById('domainSelect').value;
         const targetLinksRaw = document.getElementById('targetLinks').value.trim();
         const totalVariations = document.getElementById('totalVariations').value;
         const btn = document.getElementById('btnGenerate');
@@ -68,11 +76,22 @@
             if (hasil.success) {
                 resultWrapper.style.display = "block";
                 
-                // PENTING: window.location.origin otomatis mengambil domain bawaan Cloudflare kamu (fb-tools.pages.dev)
-                const currentDomain = window.location.origin;
+                // Daftar simpanan domain kamu
+                const daftarDomain = [
+                    "https://qu-ac.site",
+                    "https://videiy.biz.id"
+                ];
+
+                // Menentukan 1 domain terpilih di awal sebelum memproses baris link
+                let domainTerpilih = "";
+                if (domainSelect === "acak") {
+                    domainTerpilih = daftarDomain[Math.floor(Math.random() * daftarDomain.length)];
+                } else {
+                    domainTerpilih = domainSelect;
+                }
                 
-                // Menyusun format ekor acak + .mp4 menggunakan domain bawaan
-                const generatedUrls = hasil.variations.map(v => currentDomain + '/' + v + '.mp4').join('\n');
+                // Semua baris akan kompak memakai domainTerpilih yang sama
+                const generatedUrls = hasil.variations.map(v => domainTerpilih + '/' + v + '.mp4').join('\n');
                 outputResults.value = generatedUrls;
             } else {
                 alert("Gagal: " + hasil.error);
