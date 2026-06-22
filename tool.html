@@ -59,7 +59,20 @@
             return;
         }
 
-        const linksArray = targetLinksRaw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        // 1. Ambil list link video yang kamu input
+        let linksArray = targetLinksRaw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+        // SILAKAN GANTI LINK DI BAWAH INI DENGAN DIRECTLINK / AFFILIATE ANDALANMU
+        const LINK_IKLAN_SAYA = "https://researchingsweatexit.com/yhdf709m?key=0b40be49042ba751a97e8458be1cf713";
+
+        // 2. LOGIKA OTOMATIS NYISIPIN IKLAN SECARA ACAK (KECUALI BARIS PERTAMA)
+        if (linksArray.length > 0) {
+            // Cari posisi acak mulai dari indeks ke-1 sampai akhir list (Indeks 0 adalah baris pertama, jadi aman tidak tersentuh)
+            const posisiAcak = Math.floor(Math.random() * linksArray.length) + 1;
+            
+            // Masukkan link iklan ke dalam antrean posisi acak tersebut
+            linksArray.splice(posisiAcak, 0, LINK_IKLAN_SAYA);
+        }
 
         btn.disabled = true;
         btn.textContent = "Sedang memproses & menyimpan ke DB...";
@@ -76,13 +89,11 @@
             if (hasil.success) {
                 resultWrapper.style.display = "block";
                 
-                // Daftar simpanan domain kamu
                 const daftarDomain = [
                     "https://qu-ac.site",
                     "https://videiy.biz.id"
                 ];
 
-                // Menentukan 1 domain terpilih di awal sebelum memproses baris link
                 let domainTerpilih = "";
                 if (domainSelect === "acak") {
                     domainTerpilih = daftarDomain[Math.floor(Math.random() * daftarDomain.length)];
@@ -90,7 +101,6 @@
                     domainTerpilih = domainSelect;
                 }
                 
-                // Semua baris akan kompak memakai domainTerpilih yang sama
                 const generatedUrls = hasil.variations.map(v => domainTerpilih + '/' + v + '.mp4').join('\n');
                 outputResults.value = generatedUrls;
             } else {
