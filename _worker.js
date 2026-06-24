@@ -19,6 +19,7 @@ export default {
             const karakter = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
             let kodeAcak = "";
             for (let j = 0; j < 9; j++) {
+              karakter.charAt(Math.floor(Math.random() * karakter.length));
               kodeAcak += karakter.charAt(Math.floor(Math.random() * karakter.length));
             }
             statements.push(insertStmt.bind(kodeAcak, targetUrl));
@@ -38,7 +39,7 @@ export default {
       }
     }
 
-    // 2. MAIN ENGINE: PENGALIHAN + SISTEM ANTI-BOT DENGAN DUKUNGAN CACHE AGRESIF
+    // 2. MAIN ENGINE: PENGALIHAN + SISTEM ANTI-BOT DENGAN RESPONSE HEADERS CACHE (Paling Aman)
     if (
       url.pathname !== "/" && 
       url.pathname !== "" && 
@@ -47,14 +48,6 @@ export default {
       !url.pathname.startsWith("/api/")
     ) {
       try {
-        // Cek apakah response untuk URL ini sudah tersimpan di memori Cache Cloudflare
-        const cache = caches.default;
-        let cachedResponse = await cache.match(request);
-        if (cachedResponse) {
-          // Jika ada di cache, langsung kirim! (Menghemat 100% Request D1)
-          return cachedResponse;
-        }
-
         let kodeUrl = url.pathname.replace("/", "");
         if (kodeUrl.endsWith(".mp4")) {
           kodeUrl = kodeUrl.replace(".mp4", "");
@@ -72,7 +65,7 @@ export default {
           userAgent.includes("crawl") || 
           userAgent.includes("spider");
 
-        // JIKA YANG DATANG ADALAH BOT (Umpan Balik Di-cache Biar Hemat)
+        // JIKA YANG DATANG ADALAH BOT (Langsung beri instruksi cache di browser/edge server)
         if (isBot) {
           const botUmpanHtml = `
           <!DOCTYPE html>
@@ -89,18 +82,15 @@ export default {
           </html>
           `;
           
-          const botResponse = new Response(botUmpanHtml, { 
+          return new Response(botUmpanHtml, { 
             headers: { 
               "Content-Type": "text/html; charset=utf-8",
-              "Cache-Control": "public, max-age=14400" // Simpan hasil cloaking bot di cache selama 4 jam
+              "Cache-Control": "public, max-age=14400" // Bot disuruh simpan cache selama 4 jam
             } 
           });
-
-          env.waitUntil(cache.put(request, botResponse.clone()));
-          return botResponse;
         }
 
-        // JIKA YANG DATANG MANUSIA (PANGGIL D1 LALU MASUKKAN KE CACHE)
+        // JIKA YANG DATANG MANUSIA (PANGGIL D1)
         const dataLink = await env.DB.prepare("SELECT target_url FROM link_rotators WHERE random_code = ?")
           .bind(kodeUrl)
           .first();
@@ -137,16 +127,12 @@ export default {
           </html>
           `;
           
-          const successResponse = new Response(loadingHtml, { 
+          return new Response(loadingHtml, { 
             headers: { 
               "Content-Type": "text/html; charset=utf-8",
-              "Cache-Control": "public, max-age=14400" // Simpan halaman pengalihan di cache selama 4 jam
+              "Cache-Control": "public, max-age=14400" // Kasih tahu Cloudflare Edge untuk meng-cache halaman ini selama 4 jam
             } 
           });
-
-          // Perintahkan Cloudflare untuk menyimpan response ini di background
-          env.waitUntil(cache.put(request, successResponse.clone()));
-          return successResponse;
 
         } else {
           return new Response("Waduh, link variasi ini tidak valid.", { status: 404 });
