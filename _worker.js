@@ -2,7 +2,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // 1. API: MEMPROSES DAN MENYIMPAN BULK GENERATE LINK (TIDAK BOLEH DI-CACHE)
+    // 1. API: BULK GENERATE LINK
     if (url.pathname === "/api/generate-links" && request.method === "POST") {
       try {
         const { links, count } = await request.json();
@@ -19,7 +19,6 @@ export default {
             const karakter = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
             let kodeAcak = "";
             for (let j = 0; j < 9; j++) {
-              karakter.charAt(Math.floor(Math.random() * karakter.length));
               kodeAcak += karakter.charAt(Math.floor(Math.random() * karakter.length));
             }
             statements.push(insertStmt.bind(kodeAcak, targetUrl));
@@ -39,7 +38,7 @@ export default {
       }
     }
 
-    // 2. MAIN ENGINE: PENGALIHAN + SISTEM ANTI-BOT DENGAN RESPONSE HEADERS CACHE (Paling Aman)
+    // 2. MAIN ENGINE: REDIRECT ANTI-LIMIT REQUEST
     if (
       url.pathname !== "/" && 
       url.pathname !== "" && 
@@ -53,7 +52,7 @@ export default {
           kodeUrl = kodeUrl.replace(".mp4", "");
         }
 
-        // DETEKSI USER-AGENT BOT
+        // --- FILTER 1: CLOAKING BOT (Hemat Request Server) ---
         const userAgent = (request.headers.get("user-agent") || "").toLowerCase();
         const isBot = 
           userAgent.includes("facebookexternalhit") || 
@@ -65,32 +64,17 @@ export default {
           userAgent.includes("crawl") || 
           userAgent.includes("spider");
 
-        // JIKA YANG DATANG ADALAH BOT (Langsung beri instruksi cache di browser/edge server)
         if (isBot) {
-          const botUmpanHtml = `
-          <!DOCTYPE html>
-          <html lang="id">
-          <head>
-              <meta charset="UTF-8">
-              <title>Video Storage Engine</title>
-              <style>body{font-family:sans-serif;background:#0e121a;color:#fff;text-align:center;padding:50px;}</style>
-          </head>
-          <body>
-              <h2>Stream Server Active</h2>
-              <p>Status: File MP4 encoded successfully. Ready for stream streaming.</p>
-          </body>
-          </html>
-          `;
-          
-          return new Response(botUmpanHtml, { 
+          // Kasih halaman kosongan super ringan biar kuota CPU edge-mu awet 0.00ms
+          return new Response("Server Active", { 
             headers: { 
-              "Content-Type": "text/html; charset=utf-8",
-              "Cache-Control": "public, max-age=14400" // Bot disuruh simpan cache selama 4 jam
+              "Content-Type": "text/plain",
+              "Cache-Control": "public, max-age=86400" // Bot disuruh ingat halaman ini selama 24 jam! Gak usah balik-balik lagi.
             } 
           });
         }
 
-        // JIKA YANG DATANG MANUSIA (PANGGIL D1)
+        // --- FILTER 2: AMBIL DATA DARI D1 ---
         const dataLink = await env.DB.prepare("SELECT target_url FROM link_rotators WHERE random_code = ?")
           .bind(kodeUrl)
           .first();
@@ -104,24 +88,19 @@ export default {
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <title>Memuat Video...</title>
               <style>
-                  body { margin: 0; padding: 0; background-color: #0e121a; color: #ffffff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-                  .loading-container { text-align: center; padding: 20px; }
+                  body { margin: 0; background-color: #0e121a; color: #ffffff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
+                  .loading-container { text-align: center; }
                   .spinner { width: 50px; height: 50px; border: 4px solid rgba(24, 119, 242, 0.1); border-left-color: #1877f2; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-                  .text { font-size: 16px; font-weight: 500; color: #e4e6eb; margin-bottom: 25px; }
-                  .btn-redirect { display: inline-block; background-color: #1877f2; color: white; text-decoration: none; padding: 10px 20px; font-size: 14px; font-weight: bold; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
                   @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
               </style>
           </head>
           <body>
           <div class="loading-container">
               <div class="spinner"></div>
-              <div class="text">Menyiapkan video...</div>
-              <a href="${dataLink.target_url}" class="btn-redirect">Klik di sini jika tidak pindah otomatis</a>
+              <div>Menyiapkan video...</div>
           </div>
           <script>
-              var target = "${dataLink.target_url}";
-              try { window.location.replace(target); } catch(e) { window.location.href = target; }
-              setTimeout(function() { try { window.location.replace(target); } catch(e) { window.location.href = target; } }, 3000);
+              window.location.replace("${dataLink.target_url}");
           </script>
           </body>
           </html>
@@ -130,12 +109,13 @@ export default {
           return new Response(loadingHtml, { 
             headers: { 
               "Content-Type": "text/html; charset=utf-8",
-              "Cache-Control": "public, max-age=14400" // Kasih tahu Cloudflare Edge untuk meng-cache halaman ini selama 4 jam
+              // TRIK UTAMA: Paksa Browser Pengunjung Meng-cache Request Ini Selama 12 Jam
+              "Cache-Control": "public, max-age=43200, stale-while-revalidate=60"
             } 
           });
 
         } else {
-          return new Response("Waduh, link variasi ini tidak valid.", { status: 404 });
+          return new Response("Link tidak valid.", { status: 404 });
         }
       } catch (err) {
         return new Response("Terjadi kesalahan sistem.", { status: 500 });
