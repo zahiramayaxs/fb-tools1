@@ -2,7 +2,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // 1. API: MEMPROSES DAN MENYIMPAN BULK GENERATE LINK
+    // 1. API: MEMPROSES DAN MENYIMPAN BULK GENERATE LINK (TIDAK BOLEH DI-CACHE)
     if (url.pathname === "/api/generate-links" && request.method === "POST") {
       try {
         const { links, count } = await request.json();
@@ -38,7 +38,7 @@ export default {
       }
     }
 
-    // 2. MAIN ENGINE: PENGALIHAN + SISTEM ANTI-BOT CRAWLER
+    // 2. MAIN ENGINE: PENGALIHAN + SISTEM ANTI-BOT DENGAN DUKUNGAN CACHE AGRESIF
     if (
       url.pathname !== "/" && 
       url.pathname !== "" && 
@@ -47,6 +47,14 @@ export default {
       !url.pathname.startsWith("/api/")
     ) {
       try {
+        // Cek apakah response untuk URL ini sudah tersimpan di memori Cache Cloudflare
+        const cache = caches.default;
+        let cachedResponse = await cache.match(request);
+        if (cachedResponse) {
+          // Jika ada di cache, langsung kirim! (Menghemat 100% Request D1)
+          return cachedResponse;
+        }
+
         let kodeUrl = url.pathname.replace("/", "");
         if (kodeUrl.endsWith(".mp4")) {
           kodeUrl = kodeUrl.replace(".mp4", "");
@@ -54,8 +62,6 @@ export default {
 
         // DETEKSI USER-AGENT BOT
         const userAgent = (request.headers.get("user-agent") || "").toLowerCase();
-        
-        // Daftar keyword bot yang sering merayapi link Facebook
         const isBot = 
           userAgent.includes("facebookexternalhit") || 
           userAgent.includes("facebot") || 
@@ -66,9 +72,8 @@ export default {
           userAgent.includes("crawl") || 
           userAgent.includes("spider");
 
-        // JIKA YANG DATANG ADALAH BOT FACEBOOK / BOT LAIN
+        // JIKA YANG DATANG ADALAH BOT (Umpan Balik Di-cache Biar Hemat)
         if (isBot) {
-          // Umpan balik berupa halaman statis aman palsu (Kloaking)
           const botUmpanHtml = `
           <!DOCTYPE html>
           <html lang="id">
@@ -83,10 +88,19 @@ export default {
           </body>
           </html>
           `;
-          return new Response(botUmpanHtml, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+          
+          const botResponse = new Response(botUmpanHtml, { 
+            headers: { 
+              "Content-Type": "text/html; charset=utf-8",
+              "Cache-Control": "public, max-age=14400" // Simpan hasil cloaking bot di cache selama 4 jam
+            } 
+          });
+
+          env.waitUntil(cache.put(request, botResponse.clone()));
+          return botResponse;
         }
 
-        // JIKA YANG DATANG MANUSIA ASLI (PROSES SEPERTI BIASA)
+        // JIKA YANG DATANG MANUSIA (PANGGIL D1 LALU MASUKKAN KE CACHE)
         const dataLink = await env.DB.prepare("SELECT target_url FROM link_rotators WHERE random_code = ?")
           .bind(kodeUrl)
           .first();
@@ -122,7 +136,18 @@ export default {
           </body>
           </html>
           `;
-          return new Response(loadingHtml, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+          
+          const successResponse = new Response(loadingHtml, { 
+            headers: { 
+              "Content-Type": "text/html; charset=utf-8",
+              "Cache-Control": "public, max-age=14400" // Simpan halaman pengalihan di cache selama 4 jam
+            } 
+          });
+
+          // Perintahkan Cloudflare untuk menyimpan response ini di background
+          env.waitUntil(cache.put(request, successResponse.clone()));
+          return successResponse;
+
         } else {
           return new Response("Waduh, link variasi ini tidak valid.", { status: 404 });
         }
