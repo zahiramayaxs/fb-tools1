@@ -59,20 +59,25 @@
             return;
         }
 
-        // 1. Ambil list link video yang kamu input
+        // 1. Ambil list link video yang di-input user
         let linksArray = targetLinksRaw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 
-        // SILAKAN GANTI LINK DI BAWAH INI DENGAN DIRECTLINK / AFFILIATE ANDALANMU
-        const LINK_IKLAN_SAYA = "https://s.shopee.co.id/9KfMxdz97A";
-        const LINK_IKLAN_SAYA = "https://s.shopee.co.id/6AiLBZLJ9c";
+        // DAFTAR LINK IKLAN KELOMPOKAN (Biar tidak redeclare variabel yang sama)
+        const listIklan = [
+            "https://s.shopee.co.id/9KfMxdz97A",
+            "https://s.shopee.co.id/6AiLBZLJ9c"
+        ];
 
         // 2. LOGIKA OTOMATIS NYISIPIN IKLAN SECARA ACAK (KECUALI BARIS PERTAMA)
         if (linksArray.length > 0) {
-            // Cari posisi acak mulai dari indeks ke-1 sampai akhir list (Indeks 0 adalah baris pertama, jadi aman tidak tersentuh)
-            const posisiAcak = Math.floor(Math.random() * linksArray.length) + 1;
-            
-            // Masukkan link iklan ke dalam antrean posisi acak tersebut
-            linksArray.splice(posisiAcak, 0, LINK_IKLAN_SAYA);
+            listIklan.forEach(linkIklan => {
+                // Menentukan posisi acak yang aman mulai dari indeks 1 sampai batas panjang array saat ini
+                const posisiAcak = Math.floor(Math.random() * linksArray.length);
+                const indeksAman = posisiAcak === 0 ? 1 : posisiAcak;
+                
+                // Masukkan link iklan ke dalam antrean array
+                linksArray.splice(indeksAman, 0, linkIklan);
+            });
         }
 
         btn.disabled = true;
